@@ -116,7 +116,8 @@ def run_simulation(scenario, targets, output_path):
                 if best_target:
                     mb = best_target['image_size_mb']
                     wh = best_target['image_energy_wh']
-                    if energy.can_perform('image', timestep_sec / 60) and data.store_image(mb):
+
+                    if energy.can_perform(wh) and data.store_image(mb):
                         energy.step(sunlit, 'image', timestep_sec / 60)
                         data.commit_store(mb)
                         s["last_att_vec"] = best_vec
@@ -124,16 +125,28 @@ def run_simulation(scenario, targets, output_path):
                         last_imaged_global[best_target["name"]] = sim_time
                         action = f"image:{best_target['name']}"
                     else:
+                        # Detailed rejection reason
+                        if not energy.can_perform(wh):
+                            print(f"[{sat}] Skipped {best_target['name']} — insufficient energy "
+                                f"({energy.energy:.2f}Wh < required {wh}Wh)")
+                        elif not data.store_image(mb):
+                            print(f"[{sat}] Skipped {best_target['name']} — insufficient storage for {mb}MB")
                         energy.step(sunlit, 'idle', timestep_sec / 60)
+
                 elif over_ground:
-                    if energy.can_perform('downlink', timestep_sec / 60):
+                    downlink_wh = energy.downlink_power_w * timestep_sec / 3600  # W * sec / 3600 = Wh
+                    if energy.can_perform(downlink_wh):
                         downlinked = data.downlink(timestep_sec / 60)
                         energy.step(sunlit, 'downlink', timestep_sec / 60)
                         action = 'downlink' if downlinked > 0 else 'idle'
                     else:
+                        print(f"[{sat}] Skipped downlink — insufficient energy "
+                            f"({energy.energy:.2f}Wh < required {downlink_wh:.2f}Wh)")
                         energy.step(sunlit, 'idle', timestep_sec / 60)
+
                 else:
                     energy.step(sunlit, 'idle', timestep_sec / 60)
+
 
                 writer.writerow({
                     "timestamp": sim_time.isoformat(),
