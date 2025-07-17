@@ -1,106 +1,151 @@
+import math
 from skyfield.api import load, EarthSatellite, wgs84
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+import numpy as np
 import csv
-import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from core.energy_model import EnergyModel
 from core.data_model import DataModel
 
-print("Running UPDATED SIMULATION SCRIPT")
-
-def is_visible(sat, location, time, min_elev_deg=10.0):
+def is_visible(sat, location, time, min_elev_deg):
     difference = sat - location
     topocentric = difference.at(time)
-    alt, az, _ = topocentric.altaz()
+    alt, _, _ = topocentric.altaz()
     return alt.degrees > min_elev_deg
 
-def run_simulation(
-    scenario_config,
-    targets,
-    output_csv="outputs/energy_data_log.csv"
-):
-    from skyfield.api import load, EarthSatellite, wgs84
-    from datetime import datetime, timedelta, timezone
+def vector_to_target(sat, lat, lon, t):
+    sat_pos = np.array(sat.at(t).position.km)
+    tgt_pos = np.array(wgs84.latlon(lat, lon).at(t).position.km)
+    vec = tgt_pos - sat_pos
+    return vec / np.linalg.norm(vec)
 
+def angle_between(vec1, vec2):
+    dot = np.clip(np.dot(vec1, vec2), -1.0, 1.0)
+    return math.degrees(math.acos(dot))
+
+def run_simulation(scenario, targets, output_path):
     ts = load.timescale()
     eph = load('de421.bsp')
 
-    satellites = scenario_config['satellites']
-    duration_min = scenario_config['duration_minutes']
-    timestep_sec = scenario_config['timestep_sec']
-    ground_stations = scenario_config.get('ground_stations', [])
-    min_elev = scenario_config.get('min_elevation_deg', 10)
+    start_time = scenario['start_time']
+    duration_min = scenario['duration_minutes']
+    timestep_sec = scenario['timestep_sec']
+    steps = int(duration_min * 60 / timestep_sec)
 
-    if not ground_stations:
-        raise ValueError("No ground stations defined in scenario.")
+    min_elev = scenario.get('min_elevation_deg', 10)
+    max_slew_deg = scenario.get('max_slew_angle_deg', 20)
+    ground_stations = scenario.get('ground_stations', [])
 
-    ground = wgs84.latlon(ground_stations[0]['lat'], ground_stations[0]['lon'])
+    sats = []
+    for sat_cfg in scenario['satellites']:
+        sat = EarthSatellite(sat_cfg['tle'][0], sat_cfg['tle'][1], sat_cfg['name'], ts)
+        sats.append({
+            "name": sat_cfg["name"],
+            "sat": sat,
+            "energy": EnergyModel(
+                capacity_wh=sat_cfg["battery_wh"],
+                initial_wh=sat_cfg.get("initial_battery_wh", sat_cfg["battery_wh"]),
+                charge_rate_w=sat_cfg["charge_rate_w"],
+                imaging_power_w=sat_cfg["imaging_power_w"],
+                downlink_power_w=sat_cfg["downlink_power_w"],
+                idle_power_w=sat_cfg["idle_power_w"]
+            ),
+            "data": DataModel(
+                capacity_mb=sat_cfg["storage_capacity_mb"],
+                downlink_rate_mbps=sat_cfg["downlink_bandwidth_mbps"],
+                initial_mb=sat_cfg.get("initial_storage_mb", 0)
+            ),
+            "last_att_vec": None,
+            "last_imaged": {tgt["name"]: None for tgt in targets}
+        })
 
-    # Prepare output
-    os.makedirs(os.path.dirname(output_csv), exist_ok=True)
-    with open(output_csv, 'w', newline='') as csvfile:
-        fieldnames = [
-            'timestamp', 'satellite', 'action', 'in_sunlight',
-            'over_target', 'over_ground', 'energy_wh', 'battery_pct',
-            'data_mb', 'storage_pct'
-        ]
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    last_imaged_global = {tgt["name"]: None for tgt in targets}
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w", newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=[
+            "timestamp", "satellite", "action", "in_sunlight", "over_target", "over_ground",
+            "energy_wh", "battery_pct", "data_mb", "storage_pct"
+        ])
         writer.writeheader()
 
-        start_time = datetime.utcnow().replace(tzinfo=timezone.utc)
+        for step in range(steps):
+            sim_time = start_time + timedelta(seconds=step * timestep_sec)
+            t = ts.utc(sim_time)
 
-        for sat_cfg in satellites:
-            name = sat_cfg['name']
-            tle = sat_cfg['tle']
-            sat = EarthSatellite(tle[0], tle[1], name, ts)
-            energy_model = EnergyModel(capacity_wh=sat_cfg['energy_capacity_wh'])
-            data_model = DataModel(
-                capacity_mb=sat_cfg.get("storage_capacity_mb", 500.0),
-                downlink_rate_mbps=sat_cfg.get("downlink_bandwidth_mbps", 10.0)
-            )
-            time = start_time
-            for _ in range(duration_min):
-                t = ts.utc(time)
+            for s in sats:
+                sat = s["sat"]
+                energy = s["energy"]
+                data = s["data"]
+                name = s["name"]
                 sunlit = sat.at(t).is_sunlit(eph)
-                over_target = any(
-                    is_visible(sat, wgs84.latlon(tgt['lat'], tgt['lon']), t, min_elev)
-                    for tgt in targets
+
+                # Visible targets with allowed slew
+                eligible_targets = []
+                for tgt in targets:
+                    loc = wgs84.latlon(tgt['lat'], tgt['lon'])
+                    if not is_visible(sat, loc, t, min_elev):
+                        continue
+
+                    revisit_td = timedelta(hours=tgt['revisit_hours'])
+                    last = last_imaged_global[tgt['name']]
+                    if last is not None and (sim_time - last) < revisit_td:
+                        continue
+
+                    vec = vector_to_target(sat, tgt['lat'], tgt['lon'], t)
+                    if s["last_att_vec"] is not None:
+                        slew_deg = angle_between(vec, s["last_att_vec"])
+                        if slew_deg > max_slew_deg:
+                            continue
+
+                    eligible_targets.append((tgt, vec))
+
+                best_target = None
+                best_vec = None
+                if eligible_targets:
+                    eligible_targets.sort(key=lambda x: (-x[0]["priority"], last_imaged_global[x[0]["name"]] or datetime.min))
+                    best_target, best_vec = eligible_targets[0]
+
+                over_ground = any(
+                    is_visible(sat, wgs84.latlon(gs['lat'], gs['lon']), t, min_elev)
+                    for gs in ground_stations
                 )
-                over_ground = is_visible(sat, ground, t, min_elev)
 
-                action = 'idle'
-                if over_target:
-                    if energy_model.can_perform(5) and data_model.store_image(50):
-                        energy_model.step(sunlit, 'image', timestep_sec / 60)
-                        action = 'image'
+                action = "idle"
+
+                if best_target:
+                    mb = best_target['image_size_mb']
+                    wh = best_target['image_energy_wh']
+                    if energy.can_perform('image', timestep_sec / 60) and data.store_image(mb):
+                        energy.step(sunlit, 'image', timestep_sec / 60)
+                        data.commit_store(mb)
+                        s["last_att_vec"] = best_vec
+                        s["last_imaged"][best_target["name"]] = sim_time
+                        last_imaged_global[best_target["name"]] = sim_time
+                        action = f"image:{best_target['name']}"
                     else:
-                        energy_model.step(sunlit, 'idle', timestep_sec / 60)
-
+                        energy.step(sunlit, 'idle', timestep_sec / 60)
                 elif over_ground:
-                    if energy_model.can_perform(5):
-                        downlinked = data_model.downlink(timestep_sec / 60)
-                        energy_model.step(sunlit, 'downlink', timestep_sec / 60)
+                    if energy.can_perform('downlink', timestep_sec / 60):
+                        downlinked = data.downlink(timestep_sec / 60)
+                        energy.step(sunlit, 'downlink', timestep_sec / 60)
                         action = 'downlink' if downlinked > 0 else 'idle'
                     else:
-                        energy_model.step(sunlit, 'idle', timestep_sec / 60)
+                        energy.step(sunlit, 'idle', timestep_sec / 60)
                 else:
-                    energy_model.step(sunlit, 'idle', timestep_sec / 60)
+                    energy.step(sunlit, 'idle', timestep_sec / 60)
 
                 writer.writerow({
-                    'timestamp': time.isoformat(),
-                    'satellite': name,
-                    'action': action,
-                    'in_sunlight': sunlit,
-                    'over_target': over_target,
-                    'over_ground': over_ground,
-                    'energy_wh': round(energy_model.energy, 2),
-                    'battery_pct': round((energy_model.energy / energy_model.capacity) * 100, 1),
-                    'data_mb': round(data_model.stored_data, 2),
-                    'storage_pct': round((data_model.stored_data / data_model.capacity) * 100, 1),
+                    "timestamp": sim_time.isoformat(),
+                    "satellite": name,
+                    "action": action,
+                    "in_sunlight": sunlit,
+                    "over_target": bool(best_target),
+                    "over_ground": over_ground,
+                    "energy_wh": round(energy.energy, 2),
+                    "battery_pct": round((energy.energy / energy.capacity) * 100, 1),
+                    "data_mb": round(data.stored_data, 2),
+                    "storage_pct": round((data.stored_data / data.capacity) * 100, 1),
                 })
 
-                time += timedelta(seconds=timestep_sec)
-
-    print(f"✅ Simulation complete. Log saved to {output_csv}")
+    print(f"✅ Simulation complete. Log saved to {output_path}")

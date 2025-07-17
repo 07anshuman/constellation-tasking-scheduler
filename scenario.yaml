@@ -1,41 +1,40 @@
-simulation:
-  start_time: "2025-07-17T00:00:00Z"
-  duration_minutes: 180
-  timestep_seconds: 60
+start_time: "2025-07-17T00:00:00Z"
+duration_minutes: 180
+timestep_sec: 60
+min_elevation_deg: 10
+max_slew_angle_deg: 25  # example value, change if needed
 
 satellites:
   - name: "ISS"
-    tle: 
+    tle:
       - "1 25544U 98067A   20252.54846065  .00001264  00000-0  29621-4 0  9993"
       - "2 25544  51.6445  49.2431 0001235 131.1758 284.5727 15.49211630243154"
     battery_wh: 1000.0
-    solar_panel_area_m2: 2.0
-    solar_efficiency: 0.2
+    initial_battery_wh: 500.0
+    charge_rate_w: 400.0
     imaging_power_w: 50.0
     downlink_power_w: 40.0
     idle_power_w: 5.0
-    downlink_rate_mbps: 50.0
-    storage_mb: 1000.0
-    initial_battery_pct: 0.5
-    initial_storage_pct: 0.0
+    storage_capacity_mb: 1000.0
+    initial_storage_mb: 0.0
+    downlink_bandwidth_mbps: 50.0
 
   - name: "Sat-2"
     tle:
       - "1 00005U 58002B   20058.83667824  .00000023  00000-0  28098-4 0  4753"
       - "2 00005  34.2682 348.7242 1859667 331.7664  19.3264 10.82419157413667"
     battery_wh: 500.0
-    solar_panel_area_m2: 1.5
-    solar_efficiency: 0.18
+    initial_battery_wh: 350.0
+    charge_rate_w: 270.0
     imaging_power_w: 30.0
     downlink_power_w: 35.0
     idle_power_w: 5.0
-    downlink_rate_mbps: 20.0
-    storage_mb: 500.0
-    initial_battery_pct: 0.7
-    initial_storage_pct: 0.1
+    storage_capacity_mb: 500.0
+    initial_storage_mb: 50.0
+    downlink_bandwidth_mbps: 20.0
 
 ground_stations:
   - name: "DefaultGS"
-    latitude: 31.2304
-    longitude: 121.4737
-    altitude_m: 10
+    lat: 31.2304
+    lon: 121.4737
+    alt_m: 10
