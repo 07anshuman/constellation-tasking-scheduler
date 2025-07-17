@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: constellation_schedular
+Version: 0.1.0
+Summary: Realistic EO constellation scheduling simulator
+Author-email: Anshuman <anshuman.contact07@gmail.com>
+Requires-Python: >=3.9
