@@ -11,6 +11,11 @@ satellites:
     storage_capacity_mb: 500
     downlink_bandwidth_mbps: 50
 
+ground_stations:
+  - name: "DefaultGS"
+    lat: 0.0
+    lon: 0.0
+
 weather_model: "clear_only"  # or "historical" or "api"
 min_elevation_deg: 15
 imaging_mode: "priority"
