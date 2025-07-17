@@ -1,7 +1,7 @@
 import requests
 import yaml
 
-GEONAMES_USERNAME = "anshuman07"  
+GEONAMES_USERNAME = "anshuman07"  #replace with yourusername
 
 def fetch_city_targets(min_population=500000, max_results=10):
     url = "http://api.geonames.org/searchJSON"
