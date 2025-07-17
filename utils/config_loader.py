@@ -24,9 +24,9 @@ def normalize_ground_stations(gs_list):
 
 def load_scenario(path="scenario.yaml"):
     data = load_yaml(path)
-
+    print("Loaded scenario data:", data)  #
     sim = data.get("simulation", {})
-
+    print("sim:", sim)
     start_time = datetime.fromisoformat(sim["start_time"].replace("Z", "+00:00"))
 
     return {
@@ -51,7 +51,20 @@ def load_targets(path="targets.yaml"):
 
 def load_configs(scenario_path="scenario.yaml", targets_path="targets.yaml"):
     scenario = load_scenario(scenario_path)
-    targets = load_targets(targets_path)
+    raw_targets = load_targets(targets_path)
+
+    # Normalize and validate target fields
+    targets = []
+    for t in raw_targets:
+        targets.append({
+            "lat": t["lat"],
+            "lon": t["lon"],
+            "name": t["name"],
+            "priority": t.get("priority", 1),
+            "revisit_hours": t.get("revisit_hours", 12),
+            "image_size_mb": t.get("image_size_mb", 50), 
+            "image_energy_wh": t.get("image_energy_wh", 5) 
+        })
 
     start_time = scenario["start_time"]
     duration = timedelta(minutes=scenario["duration_minutes"])
@@ -60,3 +73,4 @@ def load_configs(scenario_path="scenario.yaml", targets_path="targets.yaml"):
     ground_stations = scenario["ground_stations"]
 
     return start_time, duration, timestep, satellites, ground_stations, targets
+

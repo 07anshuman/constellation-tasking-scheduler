@@ -1,8 +1,9 @@
-start_time: "2025-07-17T00:00:00Z"
-duration_minutes: 180
-timestep_sec: 60
-min_elevation_deg: 10
-max_slew_angle_deg: 25  # example value, change if needed
+simulation:
+  start_time: "2025-07-17T00:00:00Z"
+  duration_minutes: 180
+  timestep_seconds: 60
+  min_elevation_deg: 10
+  max_slew_angle_deg: 25
 
 satellites:
   - name: "ISS"

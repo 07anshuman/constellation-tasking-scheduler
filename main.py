@@ -14,7 +14,7 @@ def main():
         scenario_path=args.scenario,
         targets_path=args.targets
     )
-
+    print("[DEBUG] Sample target:", targets[0])
     # Build scenario dict
     scenario = {
         "start_time": start_time,

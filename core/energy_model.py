@@ -4,54 +4,42 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 class EnergyModel:
-    def __init__(self, capacity_wh=100.0, charge_rate_wh_per_min=2.0, discharge_rate_wh_per_min=5.0):
+    def __init__(self,
+                 capacity_wh: float,
+                 initial_wh: float,
+                 charge_rate_w: float,
+                 imaging_power_w: float,
+                 downlink_power_w: float,
+                 idle_power_w: float):
         """
-        Initialize the energy model.
-
-        Args:
-            capacity_wh (float): Max energy capacity in watt-hours.
-            charge_rate_wh_per_min (float): Rate of charging when in sunlight.
-            discharge_rate_wh_per_min (float): Rate of discharging during operations.
+        Energy model with more realistic power draw and charging logic.
         """
         self.capacity = capacity_wh
-        self.charge_rate = charge_rate_wh_per_min
-        self.discharge_rate = discharge_rate_wh_per_min
-        self.energy = capacity_wh / 2  # Start at 50% SOC
+        self.energy = min(initial_wh, capacity_wh)  # Clamp if initial > capacity
+        self.charge_rate_w = charge_rate_w
+        self.imaging_power_w = imaging_power_w
+        self.downlink_power_w = downlink_power_w
+        self.idle_power_w = idle_power_w
 
     def step(self, in_sunlight: bool, action: str, dt_minutes: float) -> float:
-        """
-        Simulate a time step of battery behavior.
+        dt_hours = dt_minutes / 60.0
 
-        Args:
-            in_sunlight (bool): Whether the satellite is in sunlight.
-            action (str): 'image', 'downlink', or 'idle'.
-            dt_minutes (float): Time interval in minutes.
-
-        Returns:
-            float: New energy level (wh).
-        """
+        # Charge if in sunlight
         if in_sunlight:
-            self.energy = min(self.capacity, self.energy + self.charge_rate * dt_minutes)
+            self.energy = min(self.capacity, self.energy + self.charge_rate_w * dt_hours)
 
-        if action in ['image', 'downlink']:
-            self.energy = max(0.0, self.energy - self.discharge_rate * dt_minutes)
+        # Discharge based on action
+        if action == "image":
+            self.energy = max(0.0, self.energy - self.imaging_power_w * dt_hours)
+        elif action == "downlink":
+            self.energy = max(0.0, self.energy - self.downlink_power_w * dt_hours)
+        elif action == "idle":
+            self.energy = max(0.0, self.energy - self.idle_power_w * dt_hours)
 
         return self.energy
 
     def can_perform(self, required_energy: float) -> bool:
-        """
-        Check if the current energy is enough for an action.
-
-        Args:
-            required_energy (float): Required energy in Wh.
-
-        Returns:
-            bool: True if action is feasible.
-        """
         return self.energy >= required_energy
 
     def get_soc(self) -> float:
-        """
-        Get state of charge as a percentage.
-        """
         return (self.energy / self.capacity) * 100.0
