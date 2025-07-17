@@ -1,0 +1,17 @@
+scenario_name: "Global Coverage Demo"
+start_time: "2025-07-17T00:00:00Z"
+duration_minutes: 1440  # 1 day
+
+satellites:
+  - name: "ISS"
+    tle:
+      - "1 25544U 98067A   24198.53834491  .00010345  00000-0  18606-3 0  9992"
+      - "2 25544  51.6415  10.9083 0005633  39.2036  66.3267 15.50194318453658"
+    energy_capacity_wh: 1000
+    storage_capacity_mb: 500
+    downlink_bandwidth_mbps: 50
+
+weather_model: "clear_only"  # or "historical" or "api"
+min_elevation_deg: 15
+imaging_mode: "priority"
+timestep_sec: 60

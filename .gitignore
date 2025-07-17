@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+
+# Logs and outputs
+*.log
+*.csv
+*.npz
+*.h5
+*.db
+
+# OS metadata
+.DS_Store
+
+# IDE/editor folders
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
