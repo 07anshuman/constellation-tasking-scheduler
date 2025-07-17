@@ -5,7 +5,6 @@ from utils.config_loader import load_targets, load_scenario
 
 
 def main():
-    print("🚀 Running UPDATED SIMULATION SCRIPT")
     
     parser = argparse.ArgumentParser(description="Constellation Scheduler")
     parser.add_argument('--targets', default='targets.yaml', help='Path to targets YAML file')
@@ -28,7 +27,6 @@ def main():
             for gs in ground_stations:
                 print(f"▶ Simulating {sat_name} over {target['name']} using GS {gs['name']}")
                 
-                # Create outputs directory if it doesn't exist
                 os.makedirs("outputs", exist_ok=True)
 
                 output_path = f"outputs/log_{target['name']}_{gs['name']}_{sat_name}.csv"
