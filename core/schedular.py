@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from core.energy_model import EnergyModel
 from core.data_model import DataModel
 
-print("🚀 Running UPDATED SIMULATION SCRIPT")
+print("Running UPDATED SIMULATION SCRIPT")
 
 def is_visible(sat, location, time, min_elev_deg=10.0):
     difference = sat - location
