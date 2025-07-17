@@ -119,7 +119,6 @@ def run_simulation(scenario, targets, output_path):
 
                     if energy.can_perform(wh) and data.store_image(mb):
                         energy.step(sunlit, 'image', timestep_sec / 60)
-                        data.commit_store(mb)
                         s["last_att_vec"] = best_vec
                         s["last_imaged"][best_target["name"]] = sim_time
                         last_imaged_global[best_target["name"]] = sim_time
