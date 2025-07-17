@@ -1,11 +1,10 @@
 import argparse
 import os
-from core.schedular import run_simulation
+from core.scheduler import run_simulation  # FIXED SPELLING
 from utils.config_loader import load_targets, load_scenario
 
 
 def main():
-    print("🚀 Running UPDATED SIMULATION SCRIPT")
     
     parser = argparse.ArgumentParser(description="Constellation Scheduler")
     parser.add_argument('--targets', default='targets.yaml', help='Path to targets YAML file')
@@ -28,19 +27,12 @@ def main():
             for gs in ground_stations:
                 print(f"▶ Simulating {sat_name} over {target['name']} using GS {gs['name']}")
                 
-                # Create outputs directory if it doesn't exist
                 os.makedirs("outputs", exist_ok=True)
 
                 output_path = f"outputs/log_{target['name']}_{gs['name']}_{sat_name}.csv"
 
-                run_simulation(
-                    tle_lines=tle_lines,
-                    target_latlon=(target["lat"], target["lon"]),
-                    ground_latlon=(gs["lat"], gs["lon"]),
-                    duration_min=scenario["duration_minutes"],
-                    timestep_sec=scenario["timestep_sec"],
-                    output_csv=output_path
-                )
+                run_simulation(scenario, targets, output_path)
+
 
 
 if __name__ == "__main__":
