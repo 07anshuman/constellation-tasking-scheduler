@@ -2,7 +2,6 @@
 
 A modular, extensible Python package for simulating satellite constellation operations, including energy and data management, visibility, and scheduling. The project supports both programmatic (Python API), command-line, and web (FastAPI) interfaces, and outputs structured CSV and JSON logs for downstream analysis.
 
----
 
 ## Features
 
@@ -46,6 +45,8 @@ Run a simulation from the project root:
 python main.py --scenario scenario.yaml --targets targets.yaml
 ```
 - Outputs will be saved in the `outputs/` directory as CSV and JSON.
+
+> **Note:** The `de421.bsp` ephemeris file is required for astronomical calculations. If it is not present, Skyfield will automatically download it the first time you run the simulation. You do not need to include this file in the repository.
 
 ### Python API
 
@@ -110,4 +111,4 @@ pytest tests/
 
 ## License
 
-MIT License. See `LICENSE` file for details.
+MIT License. 
